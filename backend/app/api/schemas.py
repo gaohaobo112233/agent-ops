@@ -34,6 +34,8 @@ class ServerCreate(BaseModel):
     username: str = Field(..., min_length=1, max_length=100)
     password: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
+    use_tunnel: bool = False
+    tunnel_port: int = 0
 
 
 class ServerUpdate(BaseModel):
@@ -45,6 +47,8 @@ class ServerUpdate(BaseModel):
     password: Optional[str] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
+    use_tunnel: Optional[bool] = None
+    tunnel_port: Optional[int] = None
 
 
 class ServerResponse(BaseModel):
@@ -55,6 +59,8 @@ class ServerResponse(BaseModel):
     os_type: str
     username: str
     description: Optional[str]
+    use_tunnel: bool
+    tunnel_port: int
     is_active: bool
     created_at: datetime
 

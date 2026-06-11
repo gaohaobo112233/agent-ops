@@ -71,10 +71,57 @@ def test_connection(server_id: int, db: Session = Depends(get_db)):
     server = db.query(Server).filter(Server.id == server_id).first()
     if not server:
         raise HTTPException(status_code=404, detail="服务器不存在")
+
+    if server.use_tunnel and server.tunnel_port > 0:
+        host, port = "127.0.0.1", server.tunnel_port
+    else:
+        host, port = server.host, server.port
+
     if server.os_type == OSType.LINUX:
         from app.tools.ssh_executor import create_ssh_executor
-        executor = create_ssh_executor(server.host, server.port, server.username, server.password)
+        executor = create_ssh_executor(host, port, server.username, server.password)
     else:
         from app.tools.winrm_executor import create_winrm_executor
-        executor = create_winrm_executor(server.host, server.port, server.username, server.password)
-    return executor.test_connection()
+        executor = create_winrm_executor(host, port, server.username, server.password)
+
+    result = executor.test_connection()
+    if server.use_tunnel:
+        result["tunnel_port"] = server.tunnel_port
+    return result
+
+
+@router.get("/{server_id}/tunnel-command")
+def get_tunnel_command(server_id: int, db: Session = Depends(get_db)):
+    """Generate the reverse SSH tunnel command to run on the target server."""
+    server = db.query(Server).filter(Server.id == server_id).first()
+    if not server:
+        raise HTTPException(status_code=404, detail="服务器不存在")
+    if not server.use_tunnel or not server.tunnel_port:
+        raise HTTPException(status_code=400, detail="服务器未启用隧道模式")
+
+    command = (
+        f"ssh -o ServerAliveInterval=60 -o ExitOnForwardFailure=yes "
+        f"-R {server.tunnel_port}:localhost:{server.port} "
+        f"-N root@8.147.62.135"
+    )
+    persistent = (
+        f"[Unit]\n"
+        f"Description=SSH Tunnel for {server.name}\n"
+        f"After=network.target\n\n"
+        f"[Service]\n"
+        f"Type=simple\n"
+        f"ExecStart=/usr/bin/ssh -o ServerAliveInterval=60 -o ExitOnForwardFailure=yes "
+        f"-o StrictHostKeyChecking=no "
+        f"-R {server.tunnel_port}:localhost:{server.port} "
+        f"-N root@8.147.62.135\n"
+        f"Restart=always\n"
+        f"RestartSec=10\n\n"
+        f"[Install]\n"
+        f"WantedBy=multi-user.target"
+    )
+    return {
+        "quick_command": command,
+        "systemd_service": persistent,
+        "tunnel_port": server.tunnel_port,
+        "agent_server": "8.147.62.135",
+    }

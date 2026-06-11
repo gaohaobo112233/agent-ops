@@ -160,6 +160,12 @@ class AgentExecutor:
             )
         return "\n".join(lines)
 
+    def _get_connection_params(self, server: Server) -> tuple:
+        """Get actual connection params, resolving tunnel if enabled."""
+        if server.use_tunnel and server.tunnel_port > 0:
+            return ("127.0.0.1", server.tunnel_port)
+        return (server.host, server.port)
+
     def _execute_tool(self, tool_name: str, tool_args: dict) -> dict:
         if tool_name == "ssh_execute":
             server = self.db.query(Server).filter(Server.id == tool_args["server_id"]).first()
@@ -172,14 +178,16 @@ class AgentExecutor:
             if risk["blocked"]:
                 return {"success": False, "error": f"高危命令被拦截: {risk['reason']}", "risk": risk}
 
+            host, port = self._get_connection_params(server)
+
             # Backup files before execution
             backup_info = {"backup_needed": False}
-            mgr = RollbackManager(server.host, server.port, server.username, server.password)
+            mgr = RollbackManager(host, port, server.username, server.password)
             if not mgr.is_readonly(tool_args["command"]):
                 backup_info = mgr.backup_before_execute(tool_args["command"])
 
             executor = create_ssh_executor(
-                host=server.host, port=server.port,
+                host=host, port=port,
                 username=server.username, password=server.password,
             )
             result = executor.execute(tool_args["command"])
@@ -199,8 +207,9 @@ class AgentExecutor:
             if risk["blocked"]:
                 return {"success": False, "error": f"高危命令被拦截: {risk['reason']}", "risk": risk}
 
+            host, port = self._get_connection_params(server)
             executor = create_winrm_executor(
-                host=server.host, port=server.port,
+                host=host, port=port,
                 username=server.username, password=server.password,
             )
             result = executor.execute(tool_args["command"])

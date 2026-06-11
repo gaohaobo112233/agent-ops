@@ -11,7 +11,7 @@
         <thead>
           <tr>
             <th>ID</th><th>名称</th><th>地址</th><th>端口</th><th>系统</th>
-            <th>用户</th><th>备注</th><th>状态</th><th>操作</th>
+            <th>连接方式</th><th>用户</th><th>状态</th><th>操作</th>
           </tr>
         </thead>
         <tbody>
@@ -21,8 +21,11 @@
             <td>{{ s.host }}</td>
             <td>{{ s.port }}</td>
             <td>{{ s.os_type === 'linux' ? 'Linux' : 'Windows' }}</td>
+            <td>
+              <span v-if="s.use_tunnel" class="badge badge-tunnel">隧道 :{{ s.tunnel_port }}</span>
+              <span v-else class="badge badge-direct">直连</span>
+            </td>
             <td>{{ s.username }}</td>
-            <td>{{ s.description || '-' }}</td>
             <td>
               <span :class="['badge', s.is_active ? 'badge-on' : 'badge-off']">
                 {{ s.is_active ? '启用' : '禁用' }}
@@ -34,6 +37,7 @@
               </button>
               <button @click="editServer(s)" class="btn-sm btn-outline">编辑</button>
               <button @click="handleDelete(s.id)" class="btn-sm btn-danger">删除</button>
+              <button v-if="s.use_tunnel" @click="showTunnelCmd(s)" class="btn-sm btn-info">隧道</button>
             </td>
           </tr>
         </tbody>
@@ -85,6 +89,22 @@
           <label>备注</label>
           <input v-model="form.description" placeholder="可选" />
         </div>
+        <div class="form-row">
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="form.use_tunnel" />
+            使用 SSH 反向隧道（跨内网服务器）
+          </label>
+        </div>
+        <div class="form-row cols-2" v-if="form.use_tunnel">
+          <div>
+            <label>隧道本地端口</label>
+            <input v-model.number="form.tunnel_port" type="number" placeholder="如 22001" />
+          </div>
+          <div>
+            <label>隧道服务器</label>
+            <input value="8.147.62.135" disabled />
+          </div>
+        </div>
         <div class="form-actions">
           <button type="button" @click="showForm = false" class="btn-cancel">取消</button>
           <button type="submit" class="btn-save" :disabled="saving">
@@ -98,6 +118,27 @@
     <div v-if="testResult" class="test-result" :class="testResult.connected ? 'success' : 'fail'">
       {{ testResult.message || (testResult.connected ? '连接成功' : '连接失败') }}
       <button @click="testResult = null" class="close-btn">&times;</button>
+    </div>
+
+    <!-- Tunnel command modal -->
+    <div v-if="tunnelModal" class="modal-mask" @click.self="tunnelModal = null">
+      <div class="modal">
+        <h3>SSH 反向隧道设置</h3>
+        <p style="color:#666;font-size:13px;margin:8px 0">
+          在目标服务器（{{ tunnelModal.name }}，{{ tunnelModal.host }}）上执行以下命令：
+        </p>
+        <div class="code-block">
+          <pre>{{ tunnelCmd }}</pre>
+        </div>
+        <p style="color:#e67e22;font-size:13px;margin:12px 0">
+          隧道建立后，Agent 会通过 127.0.0.1:{{ tunnelModal.tunnel_port }} 连接到该服务器。
+          建议使用下方的 systemd 服务确保隧道持久运行。
+        </p>
+        <div class="code-block">
+          <pre>{{ tunnelSystemd }}</pre>
+        </div>
+        <button @click="tunnelModal = null" class="btn-close">关闭</button>
+      </div>
     </div>
   </div>
 </template>
@@ -116,6 +157,7 @@ const testResult = ref(null)
 const defaultForm = () => ({
   name: '', host: '', port: 22, os_type: 'linux',
   username: 'root', password: '', description: '',
+  use_tunnel: false, tunnel_port: 0,
 })
 const form = ref(defaultForm())
 
@@ -180,6 +222,24 @@ async function handleDelete(id) {
     servers.value = servers.value.filter(s => s.id !== id)
   } catch (e) {
     alert('删除失败')
+  }
+}
+
+// Tunnel command
+const tunnelModal = ref(null)
+const tunnelCmd = ref('')
+const tunnelSystemd = ref('')
+
+async function showTunnelCmd(s) {
+  tunnelModal.value = s
+  // Try to fetch from API, or generate locally
+  try {
+    const res = await api.get(`/servers/${s.id}/tunnel-command`)
+    tunnelCmd.value = res.data.quick_command
+    tunnelSystemd.value = res.data.systemd_service
+  } catch (e) {
+    tunnelCmd.value = `ssh -R ${s.tunnel_port}:localhost:${s.port} -N root@8.147.62.135`
+    tunnelSystemd.value = '(无法获取 systemd 配置)'
   }
 }
 </script>
@@ -393,5 +453,60 @@ th {
   border: none;
   font-size: 20px;
   cursor: pointer;
+}
+
+.badge-tunnel {
+  background: #e8f0fe;
+  color: #1a73e8;
+  font-size: 11px;
+}
+
+.badge-direct {
+  background: #f0f0f0;
+  color: #888;
+  font-size: 11px;
+}
+
+.btn-info {
+  color: #1a73e8;
+  border-color: #1a73e8;
+  font-size: 11px;
+}
+
+.btn-info:hover {
+  background: #1a73e8;
+  color: #fff;
+}
+
+.checkbox-label {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: normal !important;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.code-block {
+  background: #1a1a2e;
+  color: #eee;
+  padding: 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: monospace;
+  overflow-x: auto;
+  margin: 8px 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.code-block pre {
+  margin: 0;
+  white-space: pre-wrap;
 }
 </style>

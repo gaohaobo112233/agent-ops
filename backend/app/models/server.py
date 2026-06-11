@@ -24,6 +24,8 @@ class Server(Base):
     username: Mapped[str] = mapped_column(String(100), nullable=False, comment="登录用户")
     password: Mapped[str] = mapped_column(String(255), nullable=False, comment="登录密码")
     description: Mapped[Optional[str]] = mapped_column(String(500), default="", comment="备注")
+    use_tunnel: Mapped[bool] = mapped_column(Boolean, default=False, comment="使用SSH隧道连接")
+    tunnel_port: Mapped[int] = mapped_column(Integer, default=0, comment="隧道本地端口，如22001")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, comment="是否启用")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
