@@ -24,6 +24,12 @@ const routes = [
     component: () => import('../views/TasksView.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/monitor',
+    name: 'Monitor',
+    component: () => import('../views/MonitorView.vue'),
+    meta: { requiresAuth: true },
+  },
 ]
 
 const router = createRouter({

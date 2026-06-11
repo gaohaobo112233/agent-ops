@@ -8,6 +8,9 @@
       <router-link to="/servers" class="nav-item">
         <span>&#128421;</span> 服务器管理
       </router-link>
+      <router-link to="/monitor" class="nav-item">
+        <span>&#128200;</span> 监控仪表盘
+      </router-link>
       <router-link to="/tasks" class="nav-item">
         <span>&#128337;</span> 任务历史
       </router-link>

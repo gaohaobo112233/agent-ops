@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 480
 
+    # Prometheus
+    PROMETHEUS_URL: str = "http://127.0.0.1:9090"
+
     # Default admin
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = "admin123"

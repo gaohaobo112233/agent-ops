@@ -10,6 +10,7 @@ from app.models.server import Server, OSType
 from app.tools.ssh_executor import create_ssh_executor
 from app.tools.winrm_executor import create_winrm_executor
 from app.tools.inspection import check_cpu, check_memory, check_disk, check_port
+from app.tools.prometheus import create_prometheus_client, METRIC_HELP
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +102,40 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "query_prometheus",
+            "description": f"查询 Prometheus 监控指标，获取服务器的 CPU、内存、磁盘、网络等时序数据。{METRIC_HELP}",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query_type": {
+                        "type": "string",
+                        "enum": ["instant", "range"],
+                        "description": "instant=当前瞬时值, range=时间范围查询",
+                    },
+                    "promql": {
+                        "type": "string",
+                        "description": "PromQL 查询语句。如: node_cpu_seconds_total, node_memory_MemAvailable_bytes 等",
+                    },
+                    "start": {
+                        "type": "string",
+                        "description": "range查询的开始时间，如: -1h 表示1小时前，-30m 表示30分钟前",
+                    },
+                    "end": {
+                        "type": "string",
+                        "description": "range查询的结束时间，如: now",
+                    },
+                    "step": {
+                        "type": "string",
+                        "description": "采样间隔，如: 1m, 5m, 15m",
+                    },
+                },
+                "required": ["query_type", "promql"],
+            },
+        },
+    },
 ]
 
 
@@ -175,6 +210,29 @@ class AgentExecutor:
 
         elif tool_name == "check_port_status":
             return check_port(tool_args["host"], tool_args["port"])
+
+        elif tool_name == "query_prometheus":
+            client = create_prometheus_client()
+            qtype = tool_args["query_type"]
+            promql = tool_args["promql"]
+            if qtype == "instant":
+                result = client.instant_query(promql)
+            else:
+                start = tool_args.get("start", "-1h")
+                end = tool_args.get("end", "now")
+                step = tool_args.get("step", "1m")
+                result = client.range_query(promql, start, end, step)
+            # Simplify output - limit data points
+            if result.get("success") and "data" in result:
+                data = result["data"]
+                if "data" in data and "result" in data["data"]:
+                    results = data["data"]["result"]
+                    # Truncate long time series
+                    for r in results[:5]:
+                        if "values" in r and len(r["values"]) > 30:
+                            r["values"] = r["values"][:30]
+                            r["truncated"] = True
+            return result
 
         return {"success": False, "error": f"未知工具: {tool_name}"}
 
