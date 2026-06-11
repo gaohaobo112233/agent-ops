@@ -9,6 +9,7 @@ from app.api.chat import router as chat_router
 from app.api.servers import router as servers_router
 from app.api.tasks import router as tasks_router
 from app.api.monitor import router as monitor_router
+from app.api.promql import router as promql_router
 
 
 @asynccontextmanager
@@ -36,6 +37,7 @@ app.include_router(chat_router)
 app.include_router(servers_router)
 app.include_router(tasks_router)
 app.include_router(monitor_router)
+app.include_router(promql_router)
 
 
 @app.get("/")

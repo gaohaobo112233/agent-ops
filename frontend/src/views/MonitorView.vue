@@ -56,14 +56,26 @@
 
     <!-- Custom query -->
     <div class="section">
-      <div class="section-header"><h3>自定义 PromQL 查询</h3></div>
-      <div class="query-box">
-        <textarea v-model="customQuery" placeholder="输入 PromQL，如: node_cpu_seconds_total" rows="2"></textarea>
-        <button @click="runCustomQuery" class="query-btn" :disabled="queryLoading">
-          {{ queryLoading ? '查询中...' : '查询' }}
+      <div class="section-header"><h3>PromQL 查询</h3></div>
+
+      <!-- Step 1: Natural language → PromQL -->
+      <div class="nl-row">
+        <input v-model="nlInput" @keydown.enter.prevent="generatePromQL"
+               placeholder="用自然语言描述查询需求，如：查看每台机器的内存使用率" />
+        <button @click="generatePromQL" class="gen-btn" :disabled="nlLoading">
+          {{ nlLoading ? 'AI生成中...' : '生成PromQL' }}
         </button>
       </div>
-      <pre class="query-result" v-if="customResult">{{ JSON.stringify(customResult, null, 2).slice(0, 2000) }}</pre>
+
+      <!-- Step 2: PromQL input (editable) -->
+      <div class="query-box">
+        <textarea v-model="customQuery" placeholder="AI 生成的 PromQL 会出现在这里，你也可以直接粘贴 PromQL" rows="3"></textarea>
+        <button @click="runCustomQuery" class="query-btn" :disabled="queryLoading || !customQuery.trim()">
+          {{ queryLoading ? '执行中...' : '执行' }}
+        </button>
+      </div>
+
+      <pre class="query-result" v-if="customResult">{{ JSON.stringify(customResult, null, 2).slice(0, 3000) }}</pre>
     </div>
   </div>
 </template>
@@ -131,10 +143,30 @@ async function loadTargets() {
   }
 }
 
-// Custom query
+// Natural language → PromQL
+const nlInput = ref('')
+const nlLoading = ref(false)
 const customQuery = ref('')
 const customResult = ref(null)
 const queryLoading = ref(false)
+
+async function generatePromQL() {
+  const text = nlInput.value.trim()
+  if (!text) return
+  nlLoading.value = true
+  try {
+    const res = await api.post('/promql/generate', { text })
+    customQuery.value = res.data.promql || ''
+    if (res.data.promql) {
+      // Auto-execute after generating
+      await runCustomQuery()
+    }
+  } catch (e) {
+    customQuery.value = '# 生成失败: ' + (e.response?.data?.detail || e.message)
+  } finally {
+    nlLoading.value = false
+  }
+}
 
 async function runCustomQuery() {
   if (!customQuery.value.trim()) return
@@ -301,6 +333,45 @@ th {
   color: #999;
 }
 
+.nl-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.nl-row input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.nl-row input:focus {
+  outline: none;
+  border-color: #34a853;
+}
+
+.gen-btn {
+  padding: 0 20px;
+  background: #34a853;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.gen-btn:hover {
+  background: #2d9249;
+}
+
+.gen-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .query-box {
   display: flex;
   gap: 12px;
@@ -316,6 +387,11 @@ th {
   resize: none;
 }
 
+.query-box textarea:focus {
+  outline: none;
+  border-color: #1a73e8;
+}
+
 .query-btn {
   padding: 0 24px;
   background: #1a73e8;
@@ -324,6 +400,11 @@ th {
   border-radius: 8px;
   cursor: pointer;
   white-space: nowrap;
+}
+
+.query-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .query-result {
