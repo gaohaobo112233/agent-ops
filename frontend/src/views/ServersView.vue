@@ -38,7 +38,12 @@
           </tr>
         </tbody>
       </table>
-      <div v-else class="empty">暂无服务器，点击"添加服务器"开始</div>
+      <div v-else class="empty">
+        <div class="empty-icon">🖥️</div>
+        <p class="empty-title">还没有添加任何服务器</p>
+        <p class="empty-desc">添加你要管理的 Linux 或 Windows 服务器</p>
+        <button @click="showForm = true; editing = null; resetForm()" class="add-btn-empty">+ 添加服务器</button>
+      </div>
     </div>
 
     <!-- Add/Edit form -->
@@ -327,9 +332,41 @@ th {
 
 .empty {
   text-align: center;
-  padding: 60px;
+  padding: 80px 20px;
   color: #999;
-  font-size: 15px;
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.empty-title {
+  font-size: 20px;
+  color: #333;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.empty-desc {
+  font-size: 14px;
+  color: #999;
+  margin-bottom: 24px;
+}
+
+.add-btn-empty {
+  padding: 14px 36px;
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.add-btn-empty:hover {
+  background: #1557b0;
 }
 
 .test-result {
