@@ -15,6 +15,7 @@ class LoginResponse(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
+    action: str = Field(default="preview", pattern="^(preview|execute)$")
 
 
 class ChatResponse(BaseModel):
@@ -22,6 +23,7 @@ class ChatResponse(BaseModel):
     tool_calls: list = []
     task_id: Optional[int] = None
     success: bool = True
+    needs_approval: bool = False
 
 
 class ServerCreate(BaseModel):

@@ -12,7 +12,8 @@ router = APIRouter(prefix="/api", tags=["对话"])
 
 @router.post("/chat", response_model=ChatResponse, dependencies=[Depends(verify_token)])
 def chat(req: ChatRequest, db: Session = Depends(get_db)):
-    # Create task record
+    is_preview = req.action == "preview"
+
     task = Task(
         user_input=req.message,
         status=TaskStatus.RUNNING,
@@ -21,14 +22,18 @@ def chat(req: ChatRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(task)
 
-    # Run agent
     executor = AgentExecutor(db)
-    result = executor.run(req.message)
+    result = executor.run(req.message, preview=is_preview)
 
-    # Update task record
+    if is_preview and result.get("needs_approval"):
+        task.status = TaskStatus.APPROVAL_REQUIRED
+    elif result["success"]:
+        task.status = TaskStatus.COMPLETED
+    else:
+        task.status = TaskStatus.FAILED
+
     task.llm_response = result["reply"]
     task.tool_calls = result.get("tool_calls", [])
-    task.status = TaskStatus.COMPLETED if result["success"] else TaskStatus.FAILED
     task.error_message = result.get("error")
     task.completed_at = datetime.utcnow()
     db.commit()
@@ -38,4 +43,5 @@ def chat(req: ChatRequest, db: Session = Depends(get_db)):
         tool_calls=result.get("tool_calls", []),
         task_id=task.id,
         success=result["success"],
+        needs_approval=result.get("needs_approval", False),
     )

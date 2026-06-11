@@ -236,7 +236,7 @@ class AgentExecutor:
 
         return {"success": False, "error": f"未知工具: {tool_name}"}
 
-    def run(self, user_message: str) -> dict:
+    def run(self, user_message: str, preview: bool = False) -> dict:
         servers_context = self._get_servers_context()
         user_content = USER_CONTEXT_TEMPLATE.format(
             servers_list=servers_context,
@@ -263,7 +263,7 @@ class AgentExecutor:
             messages.append(assistant_msg.model_dump(exclude_none=True))
 
             # Loop for tool calls
-            max_iterations = 5
+            max_iterations = 1 if preview else 5
             for _ in range(max_iterations):
                 if not assistant_msg.tool_calls:
                     break
@@ -273,7 +273,7 @@ class AgentExecutor:
                     func_args = json.loads(tool_call.function.arguments)
                     logger.info(f"Tool call: {func_name}, args: {func_args}")
 
-                    # Check risk before execution
+                    # Risk check before anything
                     if func_name in ("ssh_execute", "winrm_execute"):
                         risk = check_command_risk(func_args.get("command", ""))
                         if risk["blocked"]:
@@ -288,6 +288,29 @@ class AgentExecutor:
                             })
                             continue
 
+                    # Preview mode: skip actual execution, mark as pending
+                    if preview and func_name in ("ssh_execute", "winrm_execute"):
+                        # Find server name for display
+                        server = self.db.query(Server).filter(
+                            Server.id == func_args.get("server_id")).first()
+                        server_name = server.name if server else "未知"
+                        tool_calls_log.append({
+                            "tool": func_name,
+                            "args": func_args,
+                            "server": server_name,
+                            "result": None,
+                            "pending": True,
+                        })
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": json.dumps(
+                                {"status": "pending", "message": "等待确认执行"},
+                                ensure_ascii=False),
+                        })
+                        continue
+
+                    # Execute the tool
                     result = self._execute_tool(func_name, func_args)
                     tool_calls_log.append({
                         "tool": func_name, "args": func_args, "result": result,
@@ -309,10 +332,12 @@ class AgentExecutor:
                 messages.append(assistant_msg.model_dump(exclude_none=True))
 
             final_reply = assistant_msg.content or ""
+            has_pending = any(tc.get("pending") for tc in tool_calls_log)
             return {
                 "reply": final_reply,
                 "tool_calls": tool_calls_log,
                 "success": True,
+                "needs_approval": has_pending,
             }
 
         except Exception as e:

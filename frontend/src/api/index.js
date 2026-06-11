@@ -33,7 +33,10 @@ export const login = (username, password) =>
 
 // Chat
 export const sendMessage = (message) =>
-  api.post('/chat', { message })
+  api.post('/chat', { message, action: 'preview' })
+
+export const executeMessage = (message) =>
+  api.post('/chat', { message, action: 'execute' })
 
 // Servers
 export const getServers = () => api.get('/servers/')

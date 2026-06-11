@@ -23,18 +23,34 @@
         <div class="msg-body">
           <div class="msg-content" v-html="renderContent(msg.content)"></div>
           <div v-if="msg.toolCalls && msg.toolCalls.length > 0" class="tool-calls">
-            <div v-for="(tc, i) in msg.toolCalls" :key="i" class="tool-call">
+            <div v-for="(tc, i) in msg.toolCalls" :key="i" class="tool-call"
+                 :class="{ 'tc-pending': tc.pending }">
               <div class="tc-header">
                 <span class="tc-tool">{{ tc.tool }}</span>
                 <span v-if="tc.blocked" class="tc-blocked">已拦截</span>
+                <span v-if="tc.pending" class="tc-pending-tag">待确认</span>
               </div>
               <div class="tc-args">
-                <strong>参数:</strong> {{ formatArgs(tc.args) }}
+                <template v-if="tc.pending">
+                  <strong>服务器:</strong> {{ tc.server || '-' }}
+                  <strong style="margin-left:12px">命令:</strong> <code>{{ tc.args?.command || '-' }}</code>
+                </template>
+                <template v-else>
+                  <strong>参数:</strong> {{ formatArgs(tc.args) }}
+                </template>
               </div>
               <div class="tc-result" v-if="tc.result">
                 <strong>结果:</strong>
                 <pre>{{ formatResult(tc.result) }}</pre>
               </div>
+            </div>
+          </div>
+          <div v-if="msg.needsApproval && !store.loading" class="approval-box">
+            <p>以上操作将在真实环境中执行，请确认无误</p>
+            <div class="approval-actions">
+              <button @click="handleApprove(msg.id)" class="approve-btn">
+                确认执行
+              </button>
             </div>
           </div>
           <div class="msg-time">{{ msg.time }}</div>
@@ -99,6 +115,11 @@ async function handleSend() {
 function sendExample(text) {
   inputText.value = text
   handleSend()
+}
+
+async function handleApprove(msgId) {
+  await store.approve(msgId)
+  scrollBottom()
 }
 
 function renderContent(text) {
@@ -310,6 +331,68 @@ function formatResult(result) {
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 12px;
+}
+
+.tc-pending {
+  border-color: #f0a060 !important;
+  background: #fffbf5 !important;
+}
+
+.tc-pending-tag {
+  background: #f0a060;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.tc-args code {
+  background: rgba(0,0,0,0.06);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 13px;
+  font-family: monospace;
+  word-break: break-all;
+}
+
+.approval-box {
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: #fff8e6;
+  border: 1px solid #f0a040;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.approval-box p {
+  font-size: 13px;
+  color: #996600;
+  margin-bottom: 8px;
+}
+
+.approval-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.approve-btn {
+  padding: 8px 20px;
+  background: #e67e22;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.approve-btn:hover {
+  background: #d35400;
+}
+
+.approve-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .tc-args,
