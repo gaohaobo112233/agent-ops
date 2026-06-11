@@ -11,6 +11,7 @@ from app.tools.ssh_executor import create_ssh_executor
 from app.tools.winrm_executor import create_winrm_executor
 from app.tools.inspection import check_cpu, check_memory, check_disk, check_port
 from app.tools.prometheus import create_prometheus_client, METRIC_HELP
+from app.tools.rollback import RollbackManager
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +172,12 @@ class AgentExecutor:
             if risk["blocked"]:
                 return {"success": False, "error": f"高危命令被拦截: {risk['reason']}", "risk": risk}
 
+            # Backup files before execution
+            backup_info = {"backup_needed": False}
+            mgr = RollbackManager(server.host, server.port, server.username, server.password)
+            if not mgr.is_readonly(tool_args["command"]):
+                backup_info = mgr.backup_before_execute(tool_args["command"])
+
             executor = create_ssh_executor(
                 host=server.host, port=server.port,
                 username=server.username, password=server.password,
@@ -178,6 +185,7 @@ class AgentExecutor:
             result = executor.execute(tool_args["command"])
             if risk["risk"] == "warning":
                 result["warning"] = f"注意: {risk['reason']}"
+            result["backup_info"] = backup_info
             return result
 
         elif tool_name == "winrm_execute":

@@ -53,6 +53,14 @@
               </button>
             </div>
           </div>
+          <div v-if="hasBackup(msg) && !msg.rolledBack" class="rollback-box">
+            <p>文件已自动备份，如需撤销可回滚</p>
+            <div class="approval-actions">
+              <button @click="handleRollback(msg)" class="rollback-btn" :disabled="rollingBack">
+                {{ rollingBack ? '回滚中...' : '回滚恢复' }}
+              </button>
+            </div>
+          </div>
           <div class="msg-time">{{ msg.time }}</div>
         </div>
       </div>
@@ -84,9 +92,12 @@
 import { ref, nextTick, watch, onMounted } from 'vue'
 import { useChatStore } from '../stores/chat'
 
+import { executeRollback } from '../api'
+
 const store = useChatStore()
 const inputText = ref('')
 const msgContainer = ref(null)
+const rollingBack = ref(false)
 
 const examples = [
   '帮我检查本地服务器 CPU 和内存使用情况',
@@ -120,6 +131,34 @@ function sendExample(text) {
 async function handleApprove(msgId) {
   await store.approve(msgId)
   scrollBottom()
+}
+
+function hasBackup(msg) {
+  if (!msg.toolCalls) return false
+  return msg.toolCalls.some(tc =>
+    tc.result?.backup_info?.backup_needed === true
+  )
+}
+
+async function handleRollback(msg) {
+  if (!msg.taskId && !msg.id) return
+  rollingBack.value = true
+  try {
+    const res = await executeRollback(msg.taskId || msg.id)
+    const lastMsg = store.messages[store.messages.length - 1]
+    if (res.data.success) {
+      store.addMessage('assistant',
+        '回滚成功: ' + res.data.message + '\n' + (res.data.details || ''))
+    } else {
+      store.addMessage('assistant', '回滚失败: ' + res.data.message)
+    }
+    msg.rolledBack = true
+  } catch (e) {
+    store.addMessage('assistant', '回滚请求失败: ' + (e.response?.data?.detail || e.message))
+  } finally {
+    rollingBack.value = false
+    scrollBottom()
+  }
 }
 
 function renderContent(text) {
@@ -391,6 +430,41 @@ function formatResult(result) {
 }
 
 .approve-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.rollback-box {
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: #e6f0ff;
+  border: 1px solid #5b9bd5;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.rollback-box p {
+  font-size: 13px;
+  color: #2b5797;
+  margin-bottom: 8px;
+}
+
+.rollback-btn {
+  padding: 8px 20px;
+  background: #2b5797;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.rollback-btn:hover {
+  background: #1e3f6f;
+}
+
+.rollback-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

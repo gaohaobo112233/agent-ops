@@ -49,3 +49,9 @@ export const testServer = (id) => api.post(`/servers/${id}/test`)
 export const getTasks = (page = 1, pageSize = 20) =>
   api.get('/tasks/', { params: { page, page_size: pageSize } })
 export const getTask = (id) => api.get(`/tasks/${id}`)
+
+// Rollback
+export const executeRollback = (taskId) =>
+  api.post('/rollback/execute', { task_id: taskId })
+export const getRollbackInfo = (taskId) =>
+  api.get(`/rollback/info/${taskId}`)

@@ -27,5 +27,6 @@ class Task(Base):
     error_message: Mapped[Optional[str]] = mapped_column(Text, comment="错误信息")
     server_id: Mapped[Optional[int]] = mapped_column(Integer, comment="目标服务器ID")
     executed_commands: Mapped[Optional[str]] = mapped_column(Text, comment="实际执行的命令")
+    backup_info: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, comment="回滚备份信息")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, comment="完成时间")

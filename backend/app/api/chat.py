@@ -36,6 +36,16 @@ def chat(req: ChatRequest, db: Session = Depends(get_db)):
     task.tool_calls = result.get("tool_calls", [])
     task.error_message = result.get("error")
     task.completed_at = datetime.utcnow()
+
+    # Save backup info from tool calls for rollback
+    for tc in result.get("tool_calls", []):
+        if tc.get("result") and isinstance(tc["result"], dict):
+            bi = tc["result"].get("backup_info")
+            if bi and bi.get("backup_needed"):
+                task.backup_info = bi
+                task.server_id = tc.get("args", {}).get("server_id")
+                break
+
     db.commit()
 
     return ChatResponse(
