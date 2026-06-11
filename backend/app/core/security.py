@@ -1,3 +1,4 @@
+from typing import Optional
 from datetime import datetime, timedelta
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -18,15 +19,15 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security_sc
     token = credentials.credentials
     try:
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        username: str = payload.get("sub")
+        username: Optional[str] = payload.get("sub")
         if username is None:
-            raise HTTPException(status_code=401, detail="无效的认证令牌")
+            raise HTTPException(status_code=401, detail="invalid token")
         return {"username": username}
     except JWTError:
-        raise HTTPException(status_code=401, detail="认证令牌已过期或无效")
+        raise HTTPException(status_code=401, detail="token expired or invalid")
 
 
-def authenticate(username: str, password: str) -> str | None:
+def authenticate(username: str, password: str) -> Optional[str]:
     if username == settings.ADMIN_USERNAME and password == settings.ADMIN_PASSWORD:
         return create_access_token({"sub": username})
     return None

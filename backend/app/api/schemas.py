@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
 
@@ -19,7 +20,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     tool_calls: list = []
-    task_id: int | None = None
+    task_id: Optional[int] = None
     success: bool = True
 
 
@@ -30,18 +31,18 @@ class ServerCreate(BaseModel):
     os_type: str = Field(default="linux", pattern="^(linux|windows)$")
     username: str = Field(..., min_length=1, max_length=100)
     password: str = Field(..., min_length=1, max_length=255)
-    description: str | None = None
+    description: Optional[str] = None
 
 
 class ServerUpdate(BaseModel):
-    name: str | None = None
-    host: str | None = None
-    port: int | None = None
-    os_type: str | None = None
-    username: str | None = None
-    password: str | None = None
-    description: str | None = None
-    is_active: bool | None = None
+    name: Optional[str] = None
+    host: Optional[str] = None
+    port: Optional[int] = None
+    os_type: Optional[str] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
 
 
 class ServerResponse(BaseModel):
@@ -51,7 +52,7 @@ class ServerResponse(BaseModel):
     port: int
     os_type: str
     username: str
-    description: str | None
+    description: Optional[str]
     is_active: bool
     created_at: datetime
 
@@ -62,12 +63,12 @@ class ServerResponse(BaseModel):
 class TaskResponse(BaseModel):
     id: int
     user_input: str
-    llm_response: str | None
-    tool_calls: dict | None
+    llm_response: Optional[str]
+    tool_calls: Optional[dict]
     status: str
-    error_message: str | None
+    error_message: Optional[str]
     created_at: datetime
-    completed_at: datetime | None
+    completed_at: Optional[datetime]
 
     class Config:
         from_attributes = True

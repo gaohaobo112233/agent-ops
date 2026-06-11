@@ -1,5 +1,6 @@
 from datetime import datetime
-from sqlalchemy import String, Integer, DateTime, Text, Enum as SAEnum
+from typing import Optional
+from sqlalchemy import String, Integer, DateTime, Boolean, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db.database import Base
 import enum
@@ -22,8 +23,8 @@ class Server(Base):
     )
     username: Mapped[str] = mapped_column(String(100), nullable=False, comment="登录用户")
     password: Mapped[str] = mapped_column(String(255), nullable=False, comment="登录密码")
-    description: Mapped[str | None] = mapped_column(String(500), comment="备注")
-    is_active: Mapped[bool] = mapped_column(default=True, comment="是否启用")
+    description: Mapped[Optional[str]] = mapped_column(String(500), default="", comment="备注")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, comment="是否启用")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
