@@ -16,7 +16,7 @@ FILE_MODIFY_PATTERNS = [
 
 # Patterns for commands that are read-only (no backup needed)
 READONLY_PATTERNS = [
-    r'^(df|du|free|top|ps|ls|cat|head|tail|less|grep|find|which|echo|whoami|hostname|date|uptime|uname|who|w|netstat|ss|ifconfig|ip\s+addr|ping|curl|wget\s+-O-|systemctl\s+status|journalctl)',
+    r'^(df|du|free|top|ps|ls|cat|head|tail|less|grep|find|which|whoami|hostname|date|uptime|uname|who|w|netstat|ss|ifconfig|ip\s+addr|ping|curl|wget\s+-O-|systemctl\s+status|journalctl)',
 ]
 
 
@@ -47,6 +47,9 @@ class RollbackManager:
 
     def is_readonly(self, command: str) -> bool:
         """Check if a command is read-only (no backup needed)."""
+        # If command contains file redirection/modification operators, it's NOT readonly
+        if re.search(r'(?<!\d)>|>>', command):
+            return False
         for pattern in READONLY_PATTERNS:
             if re.match(pattern, command.strip()):
                 return True
